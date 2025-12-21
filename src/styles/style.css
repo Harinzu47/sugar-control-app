@@ -1124,3 +1124,38 @@ footer {
 #validationMessage:not(:empty) {
   background: rgba(231, 76, 60, 0.1);
 }
+
+/* ===== New Food Card Styles ===== */
+.food-card-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border: none;
+  overflow: hidden;
+}
+
+.food-card-hover:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+
+.badge {
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.food-nutrition .text-muted {
+  font-size: 0.85rem;
+}
+
+/* Enhancing badges */
+.bg-success {
+  background-color: #2ECC71 !important;
+  color: #fff;
+}
+.bg-warning {
+  background-color: #F1C40F !important;
+  color: #34495E !important; 
+}
+.bg-danger {
+  background-color: #E74C3C !important;
+  color: #fff;
+}
