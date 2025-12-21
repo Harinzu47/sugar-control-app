@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4ECDC4"/>
+    <meta name="description" content="SugarControl - Diabetes management app with personalized meal recommendations based on your blood sugar levels">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" href="img/blood-drop.png">
+
+    <title>SugarControl - Diabetes Diet Management</title>
+</head>
+
+<body>
+    <!-- Skip Link for Accessibility -->
+    <a href="#mainContent" class="skip-link">Skip to main content</a>
+
+    <header class="app-bar" role="banner">
+        <div class="app-bar__menu">
+            <button id="hamburgerButton" aria-label="Open navigation menu" aria-expanded="false" aria-controls="navigationDrawer">
+                <span aria-hidden="true">☰</span>
+            </button>
+        </div>
+        <div class="app-bar__brand">
+            <i class="fa-solid fa-droplet fa-2x" style="color: #000000" aria-hidden="true"></i>
+            <h1>SugarControl</h1>
+        </div>
+
+        <nav id="navigationDrawer" class="app-bar__navigation" role="navigation" aria-label="Main navigation">
+            <ul>
+                <li><a href="#/home">Home</a></li>
+                <li><a href="#/diabetesdish">DiabetesDish Matcher</a></li>
+                <li><a href="#/blogs">Blogs</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main id="mainContent" role="main" tabindex="-1"></main>
+
+    <footer role="contentinfo">
+        <div class="container-footer">
+            <div class="footer_brand">
+                <i class="fa-solid fa-droplet fa-2x" style="color: #faf3dd" aria-hidden="true"></i>
+                <h1>SugarControl</h1>
+            </div>
+            <div class="contact">
+                <ul>
+                    <p>Contact Us</p>
+                    <li>
+                        <i class="bi bi-telephone-fill" aria-hidden="true"></i>
+                        <a href="tel:0812833533308" aria-label="Call us at 0812833533308">0812833533308</a>
+                    </li>
+                    <li>
+                        <i class="bi bi-envelope" aria-hidden="true"></i>
+                        <a href="mailto:harinzu47@gmail.com" aria-label="Email us at harinzu47@gmail.com">harinzu47@gmail.com</a>
+                    </li>
+                </ul>
+            </div>
+            <div class="social-media">
+                <div>
+                    <p>Social Media</p>
+                </div>
+                <ul class="icon" aria-label="Social media links">
+                    <li><a href="https://www.facebook.com/profile.php?id=100069512019715" target="_blank" rel="noopener noreferrer" aria-label="Visit our Facebook page"><i class="bi bi-facebook" aria-hidden="true"></i></a></li>
+                    <li><a href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit our Twitter page"><i class="bi bi-twitter-x" aria-hidden="true"></i></a></li>
+                    <li><a href="https://www.linkedin.com/in/khalid-jundullah-8086b8249/" target="_blank" rel="noopener noreferrer" aria-label="Visit our LinkedIn page"><i class="bi bi-linkedin" aria-hidden="true"></i></a></li>
+                    <li><a href="https://www.instagram.com/khalid.jundullah/" target="_blank" rel="noopener noreferrer" aria-label="Visit our Instagram page"><i class="bi bi-instagram" aria-hidden="true"></i></a></li>
+                  </ul>
+                  
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>
