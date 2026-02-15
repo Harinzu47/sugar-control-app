@@ -131,6 +131,14 @@ Sugar-App/
 
 ---
 
+## 📊 Infrastructure Monitoring
+
+Implemented container observability stack using cAdvisor, Prometheus, and Grafana to monitor real-time resource usage.
+
+![Grafana Dashboard](grafana-dashboard.png)
+
+---
+
 ## 📄 License
 
 MIT License - feel free to use for personal or commercial projects.

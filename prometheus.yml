@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s # Ambil data setiap 15 detik
+
+scrape_configs:
+  # Job 1: Memantau Prometheus itu sendiri
+  - job_name: 'prometheus'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Job 2: Memantau cAdvisor (sumber data utama kita)
+  # cAdvisor mengekspos data CPU/RAM container di port 8080
+  - job_name: 'cadvisor'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['cadvisor:8080']
