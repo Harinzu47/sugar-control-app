@@ -2,6 +2,7 @@
 
 > Modern diabetes diet management app with personalized meal recommendations based on blood sugar levels.
 
+[![Build & Push Docker Image](https://github.com/Harinzu47/sugar-control-app/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/Harinzu47/sugar-control-app/actions/workflows/docker-publish.yml)
 ![SugarControl](https://img.shields.io/badge/Version-1.0.0-4ECDC4?style=for-the-badge)
 ![JavaScript](https://img.shields.io/badge/JavaScript-Vanilla-F7DF1E?style=for-the-badge&logo=javascript)
 ![Bootstrap](https://img.shields.io/badge/Bootstrap-5.3-7952B3?style=for-the-badge&logo=bootstrap)
