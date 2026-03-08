@@ -42,12 +42,17 @@ self.addEventListener('activate', (event) => {
 
 // Fetch Event - Network first, fallback to cache
 self.addEventListener('fetch', (event) => {
+  // Cache API only supports GET — pass non-GET requests (POST, PUT, etc.) straight through
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
         // Clone the response
         const responseToCache = response.clone();
-        
+
         // Cache successful responses
         if (response.status === 200) {
           caches.open(CACHE_NAME)
@@ -55,7 +60,7 @@ self.addEventListener('fetch', (event) => {
               cache.put(event.request, responseToCache);
             });
         }
-        
+
         return response;
       })
       .catch(() => {
@@ -65,12 +70,12 @@ self.addEventListener('fetch', (event) => {
             if (response) {
               return response;
             }
-            
+
             // Return offline page for navigation requests
             if (event.request.mode === 'navigate') {
               return caches.match('./index.html');
             }
-            
+
             return new Response('Offline content not available', {
               status: 503,
               statusText: 'Service Unavailable'
@@ -79,3 +84,4 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
+

@@ -1,10 +1,16 @@
 import foodsResource from "../../data/api-source";
 import foodItem from "../templates/food-item";
+import { loadHealthProfile, getDietParameters } from '../../../modules/diabetesClassifier';
+import { getAIRecommendation, getQuickTip } from '../../../modules/aiRecommender';
+import API_ENDPOINT from '../../global/api-endpoint';
 
 const DIABETESDISH = {
   async render() {
     return `
         <div class="diabetes-dish">
+          <!-- Profile Status Bar (populated in afterRender) -->
+          <div id="profileStatusBar" class="container-fluid px-0 mb-0"></div>
+
           <!-- Header -->
           <div class="diabetes-dish-header">
             <h1>Diabetes<span>Dish</span> Matcher</h1>
@@ -87,9 +93,9 @@ const DIABETESDISH = {
   async afterRender() {
     const searchButton = document.getElementById('searchButton');
     const bloodSugarInput = document.getElementById('bloodSugarInput');
-    
+
     searchButton.addEventListener('click', this.handleSearch.bind(this));
-    
+
     // Allow Enter key to trigger search
     bloodSugarInput.addEventListener('keypress', (event) => {
       if (event.key === 'Enter') {
@@ -101,12 +107,16 @@ const DIABETESDISH = {
     bloodSugarInput.addEventListener('input', () => {
       this.updateGauge(bloodSugarInput.value);
     });
+
+    // Render profile status bar & update nav dot
+    this._renderProfileStatus();
+    this._syncNavDot();
   },
 
   updateGauge(value) {
     const gaugeContainer = document.getElementById('gaugeContainer');
     const gaugeMarker = document.getElementById('gaugeMarker');
-    
+
     if (!value || value <= 0) {
       gaugeContainer.style.display = 'none';
       return;
@@ -114,7 +124,7 @@ const DIABETESDISH = {
 
     gaugeContainer.style.display = 'block';
     const numValue = parseFloat(value);
-    
+
     // Calculate position (0-600 range mapped to 0-100%)
     let position = Math.min(Math.max((numValue / 600) * 100, 2), 98);
     gaugeMarker.style.left = `${position}%`;
@@ -131,39 +141,39 @@ const DIABETESDISH = {
 
   validateInput(value) {
     const validationMessage = document.getElementById('validationMessage');
-    
+
     // Check for empty input
     if (value === '' || value === null) {
       validationMessage.textContent = 'Silakan masukkan kadar gula darah Anda.';
       return false;
     }
-    
+
     const numValue = parseFloat(value);
-    
+
     // Check for non-numeric input
     if (isNaN(numValue)) {
       validationMessage.textContent = 'Masukkan angka yang valid.';
       return false;
     }
-    
+
     // Check for negative numbers
     if (numValue < 0) {
       validationMessage.textContent = 'Kadar gula darah tidak boleh negatif.';
       return false;
     }
-    
+
     // Check for zero
     if (numValue === 0) {
       validationMessage.textContent = 'Kadar gula darah harus lebih dari 0.';
       return false;
     }
-    
+
     // Check for maximum limit (600 mg/dL is extreme HHS level)
     if (numValue > 600) {
       validationMessage.textContent = 'Kadar gula darah melebihi batas maksimum (600 mg/dL). Jika nilai ini benar, segera hubungi dokter.';
       return false;
     }
-    
+
     // Clear validation message if valid
     validationMessage.textContent = '';
     return true;
@@ -242,25 +252,25 @@ const DIABETESDISH = {
     // Kita gunakan normalisasi sederhana agar nilai nutrisi tidak terlalu mendominasi karena satuan yang berbeda (gram vs kcal)
     // Asumsi: kita pakai raw value saja dulu karena rentang datanya wajar, tapi dikalikan bobot.
     // Opsi: valCals dibagi 100 supaya skalanya mirip dengan gram makro.
-    
-    let rawScore = (w_protein * valProtein) + 
-                   (w_cals * (valCals / 100)) + 
-                   (w_carbs * valCarbs) + 
-                   (w_sugar * valSugar);
+
+    let rawScore = (w_protein * valProtein) +
+      (w_cals * (valCals / 100)) +
+      (w_carbs * valCarbs) +
+      (w_sugar * valSugar);
 
 
     // 4. Hitung Match Percentage (0 - 100%)
     // Kita perlu mapping dari Raw Score ke Persentase.
     // Karena rawScore bisa negatif atau positif besar, kita pakai fungsi sigmoid atau min-max scaling sederhana.
     // Disini kita pakai pendekatan Min-Max Scaling relatif terhadap "Food Ideal" di kondisi tersebut.
-    
+
     // Kita set batas heuristik berdasarkan bobot maksimal:
     // Misal max possible score per serving = (8 * 30g protein) + ... = ~200 an point (positif)
     // Min possible score = (-15 * 50g sugar) = -750 point (negatif)
-    
+
     // Agar simpel dan mudah dipahami user, kita pakai Sigmoid Function yang di-shift.
     // Atau mapping linear: -500 (low) s/d +100 (high) -> 0% s/d 100%
-    
+
     const MAX_SCORE = 150;
     const MIN_SCORE = -300;
 
@@ -271,7 +281,7 @@ const DIABETESDISH = {
 
     // Refinement: Kalau BSL Tinggi (>120) DAN Sugar > 10g, paksa match percentage rendah (Hard Rule)
     if (bsl > 120 && valSugar > 10) {
-        matchPercentage = Math.min(matchPercentage, 40); // Max 40% (Zona Merah/Kuning)
+      matchPercentage = Math.min(matchPercentage, 40); // Max 40% (Zona Merah/Kuning)
     }
 
     // 5. Tentukan Kategori Match (Match Level)
@@ -280,38 +290,210 @@ const DIABETESDISH = {
     else if (matchPercentage >= 50) matchLevel = 'medium';
 
     return {
-        score: rawScore,
-        matchPercentage: Math.round(matchPercentage),
-        matchLevel: matchLevel
+      score: rawScore,
+      matchPercentage: Math.round(matchPercentage),
+      matchLevel: matchLevel
     };
   },
+
+
+
+
+  // ---------------------------------------------------------------------------
+  // Profile status bar
+  // ---------------------------------------------------------------------------
+
+  _renderProfileStatus() {
+    const bar = document.getElementById('profileStatusBar');
+    if (!bar) return;
+
+    const profile = loadHealthProfile();
+
+    if (profile && profile.classificationResult) {
+      const { label, emoji, color } = profile.classificationResult;
+      const savedDate = profile.savedAt
+        ? new Date(profile.savedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+        : '';
+
+      bar.innerHTML = `
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 px-3 py-2 mb-0"
+             style="background:rgba(0,0,0,0.04); border-bottom:1px solid rgba(0,0,0,0.08);">
+          <div class="d-flex align-items-center gap-2 small">
+            <span style="font-size:1.2rem;">${emoji}</span>
+            <span class="badge rounded-pill px-3 py-1" style="background:${color};color:#fff;font-size:0.8rem;">${label}</span>
+            ${savedDate ? `<span class="text-muted">— ${savedDate}</span>` : ''}
+          </div>
+          <a href="#/profile" class="btn btn-sm btn-outline-secondary" style="font-size:0.78rem;padding:2px 10px;">
+            <i class="bi bi-pencil-square me-1"></i>Update Profil
+          </a>
+        </div>`;
+    } else {
+      bar.innerHTML = `
+        <div class="alert alert-info d-flex align-items-center gap-3 m-3 mb-0 py-2 small" role="alert">
+          <span style="font-size:1.4rem;">🩺</span>
+          <div class="flex-grow-1">Dapatkan rekomendasi yang lebih personal!</div>
+          <a href="#/profile" class="btn btn-sm btn-primary">
+            Isi Profil Kesehatan <i class="bi bi-arrow-right ms-1"></i>
+          </a>
+        </div>`;
+    }
+  },
+
+  _syncNavDot() {
+    const dot = document.getElementById('profileNavDot');
+    if (!dot) return;
+    dot.style.display = loadHealthProfile() ? 'inline-block' : 'none';
+  },
+
+  // ---------------------------------------------------------------------------
+  // Personalized food fetch via getDietParameters
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Fetch makanan dari Spoonacular menggunakan parameter diet dari profil kesehatan.
+   * @param {Object} dietParams - Hasil dari getDietParameters()
+   * @returns {Promise<Array>}
+   */
+  async _fetchPersonalisedFoods(dietParams) {
+    try {
+      const url = API_ENDPOINT.COMPLEX_SEARCH(dietParams, 9);
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+
+      // complexSearch returns { results: [...] }
+      const results = data.results ?? [];
+
+      // Normalize to same shape as findByNutrients results
+      return results.map((item) => {
+        const nutrients = item.nutrition?.nutrients ?? [];
+        const getN = (name) => nutrients.find((n) => n.name === name)?.amount ?? 0;
+        return {
+          id: item.id,
+          title: item.title,
+          image: item.image,
+          calories: Math.round(getN('Calories')),
+          sugar: parseFloat(getN('Sugar').toFixed(1)),
+          carbs: parseFloat(getN('Carbohydrates').toFixed(1)),
+          protein: parseFloat(getN('Protein').toFixed(1)),
+        };
+      });
+    } catch (error) {
+      console.error('[diabetesdish] _fetchPersonalisedFoods error:', error);
+      return [];
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // AI Recommendation Panel
+  // ---------------------------------------------------------------------------
+
+  _renderAILoading() {
+    let panel = document.getElementById('aiRecommendationPanel');
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.id = 'aiRecommendationPanel';
+      panel.className = 'container mt-4 mb-2';
+      const foodContainer = document.getElementById('foodContainer');
+      foodContainer?.parentElement?.insertBefore(panel, foodContainer.nextSibling);
+    }
+    panel.innerHTML = `
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-bottom-0 pt-3">
+          <h6 class="fw-bold mb-0"><span class="me-2">💡</span>Rekomendasi AI untuk Kamu</h6>
+        </div>
+        <div class="card-body text-center py-4">
+          <div class="spinner-border text-primary" role="status" style="width:2rem;height:2rem;">
+            <span class="visually-hidden">Memuat rekomendasi AI...</span>
+          </div>
+          <p class="text-muted small mt-2 mb-0">Sedang menyiapkan rekomendasi personal...</p>
+        </div>
+      </div>`;
+  },
+
+  _renderAIPanel(text) {
+    const panel = document.getElementById('aiRecommendationPanel');
+    if (!panel) return;
+    panel.innerHTML = `
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 pt-3 pb-0 d-flex align-items-center justify-content-between">
+          <h6 class="fw-bold mb-0"><span class="me-2">💡</span>Rekomendasi AI untuk Kamu</h6>
+          <button id="refreshAIBtn" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+          </button>
+        </div>
+        <div class="card-body">
+          <p class="mb-0" style="white-space:pre-line;line-height:1.75;">${text}</p>
+        </div>
+        <div class="card-footer bg-white border-0 pb-3">
+          <small class="text-muted"><i class="bi bi-robot me-1"></i>Dihasilkan oleh Claude AI · Bukan pengganti saran medis</small>
+        </div>
+      </div>`;
+
+    document.getElementById('refreshAIBtn')?.addEventListener('click', () => {
+      this._triggerAIRecommendation();
+    });
+  },
+
+  /**
+   * Mengambil dan menampilkan rekomendasi AI berdasarkan profil & makanan yang ditampilkan.
+   */
+  async _triggerAIRecommendation() {
+    const profile = loadHealthProfile();
+
+    // Kumpulkan makanan yang sedang ditampilkan di #foodContainer
+    const foodCards = document.querySelectorAll('#foodContainer .card-title');
+    const displayedFoods = Array.from(foodCards).map((el) => ({ title: el.textContent.trim() }));
+
+    if (!profile) {
+      // Tanpa profil: tampilkan general tips
+      const tips = getQuickTip('general');
+      this._renderAIPanel('Berikut tips umum untuk menjaga gula darah tetap stabil:\n\n' + tips.join('\n'));
+      return;
+    }
+
+    this._renderAILoading();
+
+    const text = await getAIRecommendation({
+      healthProfile: profile,
+      classificationResult: profile.classificationResult,
+      recommendedFoods: displayedFoods,
+    });
+
+    this._renderAIPanel(text);
+  },
+
+  // ---------------------------------------------------------------------------
+  // Override handleSearch to add AI panel after food render
+  // ---------------------------------------------------------------------------
 
   async handleSearch() {
     const bloodSugarInput = document.getElementById('bloodSugarInput').value;
     const listKatalog = document.getElementById('foodContainer');
-    
+
     // Validate input
     if (!this.validateInput(bloodSugarInput)) {
       return;
     }
 
-    // Clear previous alert
+    // Clear previous alert & AI panel
     const previousAlert = document.querySelector('.blood-sugar-alert');
-    if (previousAlert) {
-      previousAlert.remove();
-    }
+    if (previousAlert) previousAlert.remove();
+    const previousAI = document.getElementById('aiRecommendationPanel');
+    if (previousAI) previousAI.remove();
 
     // Show loading state
     listKatalog.innerHTML = `
       <div class="col-12">
         <div class="loading-container">
           <div class="loading-spinner"></div>
-          <p class="loading-text">Analyzing ${bloodSugarInput} mg/dL & ranking foods based on NSS...</p>
+          <p class="loading-text">Analyzing ${bloodSugarInput} mg/dL &amp; ranking foods based on NSS...</p>
         </div>
       </div>
     `;
 
     const userBSL = parseFloat(bloodSugarInput);
+    const profile = loadHealthProfile();
 
     // Determine Status Alert Message
     let alertMessage, alertClass, alertIcon;
@@ -326,14 +508,23 @@ const DIABETESDISH = {
     } else {
       alertClass = 'alert-danger';
       alertIcon = 'bi-exclamation-triangle-fill';
-      alertMessage = `<strong>Gula Darah Tinggi (${userBSL} mg/dL)</strong><br>Sistem memfilter ketat gula & karbohidrat. Protein tinggi diprioritaskan.`;
+      alertMessage = `<strong>Gula Darah Tinggi (${userBSL} mg/dL)</strong><br>Sistem memfilter ketat gula &amp; karbohidrat. Protein tinggi diprioritaskan.`;
     }
 
-    // --- NEW LOGIC: Fetch All & Rank ---
-    const allFoods = await this._fetchAllFoods();
+    // --- Fetch foods (personalized if profile exists) ---
+    let allFoods = [];
+    if (profile && profile.classificationResult) {
+      const dietParams = getDietParameters(profile.classificationResult.condition);
+      allFoods = await this._fetchPersonalisedFoods(dietParams);
+    }
+
+    // Fallback to existing aggregated fetch if personalized returns nothing
+    if (allFoods.length === 0) {
+      allFoods = await this._fetchAllFoods();
+    }
 
     if (allFoods.length === 0) {
-         listKatalog.innerHTML = `
+      listKatalog.innerHTML = `
         <div class="col-12">
           <div class="alert alert-warning blood-sugar-alert" role="alert">
             <i class="bi bi-wifi-off" style="font-size: 1.5rem;"></i>
@@ -345,16 +536,12 @@ const DIABETESDISH = {
     }
 
     // Calculate NSS for each food
-    const rankedFoods = allFoods.map(food => {
-        const nssResult = this._calculateNSS(food, userBSL);
-        return { ...food, ...nssResult };
+    const rankedFoods = allFoods.map((food) => {
+      const nssResult = this._calculateNSS(food, userBSL);
+      return { ...food, ...nssResult };
     });
 
-    // Sort by NSS Score (Highest first)
     rankedFoods.sort((a, b) => b.score - a.score);
-
-    // Limit output? (Optional, maybe top 20 for performance if list is huge)
-    // For now we render all.
 
     // --- Render Alert ---
     const alertContainer = document.createElement('div');
@@ -364,22 +551,21 @@ const DIABETESDISH = {
         <div>${alertMessage}</div>
       </div>
     `;
-    // Insert alert before food container
     listKatalog.parentElement.insertBefore(alertContainer.firstElementChild, listKatalog);
-
 
     // --- Render Foods ---
     listKatalog.innerHTML = '';
-    
     if (rankedFoods.length === 0) {
-         listKatalog.innerHTML = '<p class="text-center w-100">No matching foods found.</p>';
-         return;
+      listKatalog.innerHTML = '<p class="text-center w-100">No matching foods found.</p>';
+      return;
     }
-
     rankedFoods.forEach((food) => {
-      // Pass the extra NSS info to the template
       listKatalog.innerHTML += foodItem(food);
     });
+
+    // --- AI Recommendation Panel ---
+    this._renderAILoading();
+    await this._triggerAIRecommendation();
   },
 };
 

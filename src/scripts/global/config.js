@@ -6,6 +6,9 @@ const CONFIG = {
 
   KEY2: process.env.GNEWS_API_KEY,
   BASE_URL2: 'https://gnews.io/api/v4/',
+
+  GROQ_API_KEY: process.env.GROQ_API_KEY,
+
   CACHE_NAME: new Date().toISOString(),
 };
 
